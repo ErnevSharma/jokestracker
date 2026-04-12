@@ -6,6 +6,7 @@ import {
 } from "../api";
 import AnnotatedText from "../components/AnnotatedText";
 import VersionTimeline from "../components/VersionTimeline";
+import AudioRecorder from "../components/AudioRecorder";
 
 const STATUS_COLORS = {
   drafting: "text-gray-400",
@@ -21,6 +22,7 @@ export default function BitsView() {
   const [newBody, setNewBody] = useState("");
   const [annotating, setAnnotating] = useState(null);   // {start, end}
   const [annotNote, setAnnotNote] = useState("");
+  const [annotAudio, setAnnotAudio] = useState(null);   // Blob | File | null
 
   const reload = useCallback(async () => {
     const bs = await listBits();
@@ -70,17 +72,22 @@ export default function BitsView() {
   async function handleAnnotate(start, end) {
     setAnnotating({ start, end });
     setAnnotNote("");
+    setAnnotAudio(null);
   }
 
   async function submitAnnotation(e) {
     e.preventDefault();
     if (!activeVersion || !annotating) return;
-    await createAnnotation(activeVersion.id, {
+    const ann = await createAnnotation(activeVersion.id, {
       char_start: annotating.start,
       char_end: annotating.end,
       note: annotNote,
     });
+    if (annotAudio) {
+      await uploadAnnotationAudio(ann.id, annotAudio);
+    }
     setAnnotating(null);
+    setAnnotAudio(null);
     const refreshed = await getVersion(activeVersion.id);
     setActiveVersion(refreshed);
   }
@@ -186,16 +193,19 @@ export default function BitsView() {
 
               {/* Annotate form */}
               {annotating && (
-                <form onSubmit={submitAnnotation} className="flex gap-2 items-center">
+                <form onSubmit={submitAnnotation} className="space-y-2 border border-gray-700 rounded p-3">
                   <input
                     value={annotNote}
                     onChange={(e) => setAnnotNote(e.target.value)}
                     placeholder="Note for this selection…"
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white placeholder-gray-500 focus:outline-none"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white placeholder-gray-500 focus:outline-none"
                     autoFocus
                   />
-                  <button className="px-2 py-1 bg-yellow-700 text-white rounded text-sm hover:bg-yellow-600">Save</button>
-                  <button type="button" onClick={() => setAnnotating(null)} className="text-sm text-gray-500 hover:text-white">Cancel</button>
+                  <AudioRecorder onRecorded={setAnnotAudio} />
+                  <div className="flex gap-2">
+                    <button className="px-2 py-1 bg-yellow-700 text-white rounded text-sm hover:bg-yellow-600">Save</button>
+                    <button type="button" onClick={() => setAnnotating(null)} className="text-sm text-gray-500 hover:text-white">Cancel</button>
+                  </div>
                 </form>
               )}
 

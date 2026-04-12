@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { listShows, createShow, getShow, updateShow, uploadShowAudio, getJob, listSets, listSetVersions } from "../api";
 import LaughHeatmap from "../components/LaughHeatmap";
+import AudioRecorder from "../components/AudioRecorder";
 
 const CROWD_SIZE = ["small", "medium", "large"];
 const CROWD_ENERGY = ["dead", "lukewarm", "warm", "hot"];
@@ -201,17 +202,12 @@ export default function ShowsView() {
 
           {selected.notes && <p className="text-sm text-gray-400">{selected.notes}</p>}
 
-          {/* Audio upload */}
+          {/* Audio upload / record */}
           {!selected.audio_key && (
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-white border border-dashed border-gray-700 hover:border-gray-500 rounded px-3 py-2">
-              + Upload show audio
-              <input
-                type="file"
-                accept="audio/*"
-                className="hidden"
-                onChange={(e) => e.target.files[0] && handleAudioUpload(e.target.files[0])}
-              />
-            </label>
+            <div className="border border-dashed border-gray-700 rounded px-3 py-2">
+              <p className="text-xs text-gray-500 mb-2">Show recording</p>
+              <AudioRecorder onRecorded={(blob) => blob && handleAudioUpload(blob)} />
+            </div>
           )}
 
           {/* Job status */}
