@@ -7,6 +7,7 @@ import {
 import AnnotatedText from "../components/AnnotatedText";
 import VersionTimeline from "../components/VersionTimeline";
 import AudioRecorder from "../components/AudioRecorder";
+import AnnotationPlayer from "../components/AnnotationPlayer";
 
 const STATUS_COLORS = {
   drafting: "text-gray-400",
@@ -220,7 +221,7 @@ export default function BitsView() {
                       </span>
                       <span className="flex-1 text-gray-300">{ann.note}</span>
                       {ann.audio_key ? (
-                        <span className="text-xs text-green-500">audio</span>
+                        <AnnotationPlayer annotationId={ann.id} />
                       ) : (
                         <label className="text-xs text-gray-500 hover:text-white cursor-pointer">
                           + audio

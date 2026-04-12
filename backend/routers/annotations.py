@@ -75,6 +75,22 @@ def delete_annotation(annotation_id: UUID, session: Session = Depends(get_sessio
     session.commit()
 
 
+# ── Audio playback URL ────────────────────────────────────────────────────────
+
+@router.get("/annotations/{annotation_id}/audio")
+def get_annotation_audio(annotation_id: UUID, session: Session = Depends(get_session)):
+    annotation = session.get(Annotation, annotation_id)
+    if not annotation:
+        raise HTTPException(404, "Annotation not found")
+    if not annotation.audio_key:
+        raise HTTPException(404, "No audio attached to this annotation")
+    try:
+        url = storage.presigned_url(annotation.audio_key)
+    except Exception as e:
+        raise HTTPException(500, f"Could not generate URL: {e}")
+    return {"url": url}
+
+
 # ── Audio upload ──────────────────────────────────────────────────────────────
 
 @router.post("/annotations/{annotation_id}/audio")

@@ -35,6 +35,7 @@ export const listAnnotations = (versionId) => req("GET", `/versions/${versionId}
 export const createAnnotation = (versionId, data) => req("POST", `/versions/${versionId}/annotations`, data);
 export const updateAnnotation = (id, data) => req("PATCH", `/annotations/${id}`, data);
 export const deleteAnnotation = (id) => req("DELETE", `/annotations/${id}`);
+export const getAnnotationAudioUrl = (id) => req("GET", `/annotations/${id}/audio`);
 export const uploadAnnotationAudio = (id, file) => {
   const fd = new FormData();
   // Give blobs a filename so python-multipart correctly parses the content-type
