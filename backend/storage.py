@@ -23,9 +23,12 @@ def upload(data: bytes, content_type: str, prefix: str = "audio") -> str:
     return key
 
 
-def download(key: str) -> bytes:
+def download(key: str) -> tuple[bytes, str]:
+    """Returns (data, content_type)."""
     response = _client().get_object(Bucket=R2_BUCKET_NAME, Key=key)
-    return response["Body"].read()
+    data = response["Body"].read()
+    content_type = response.get("ContentType", "audio/webm")
+    return data, content_type
 
 
 def presigned_url(key: str, expires: int = 3600) -> str:

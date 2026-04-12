@@ -2,6 +2,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -75,7 +76,7 @@ def delete_annotation(annotation_id: UUID, session: Session = Depends(get_sessio
     session.commit()
 
 
-# ── Audio playback URL ────────────────────────────────────────────────────────
+# ── Audio proxy ───────────────────────────────────────────────────────────────
 
 @router.get("/annotations/{annotation_id}/audio")
 def get_annotation_audio(annotation_id: UUID, session: Session = Depends(get_session)):
@@ -85,10 +86,10 @@ def get_annotation_audio(annotation_id: UUID, session: Session = Depends(get_ses
     if not annotation.audio_key:
         raise HTTPException(404, "No audio attached to this annotation")
     try:
-        url = storage.presigned_url(annotation.audio_key)
+        data, content_type = storage.download(annotation.audio_key)
     except Exception as e:
-        raise HTTPException(500, f"Could not generate URL: {e}")
-    return {"url": url}
+        raise HTTPException(500, f"Could not retrieve audio: {e}")
+    return Response(content=data, media_type=content_type)
 
 
 # ── Audio upload ──────────────────────────────────────────────────────────────
