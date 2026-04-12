@@ -1,4 +1,6 @@
-const BASE = "/api";
+// Dev: VITE_API_BASE=http://localhost:8000 (set in .env.development)
+// Production: empty string → same-origin (FastAPI serves the frontend)
+const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function req(method, path, body, isForm = false) {
   const opts = { method, headers: {} };
