@@ -10,6 +10,8 @@ import tempfile
 import modal
 
 # Image with all ML deps
+# Note: LaughterSegmentation is not pip-installable; _detect_laughs returns []
+# until an installable package is available.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -18,10 +20,6 @@ image = (
         "requests",
         "torch",
         "torchaudio",
-    )
-    # LaughterSegmentation: https://github.com/omine-me/LaughterSegmentation
-    .run_commands(
-        "pip install git+https://github.com/omine-me/LaughterSegmentation.git"
     )
 )
 

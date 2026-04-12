@@ -320,5 +320,5 @@ GET    /jobs/:id                      → job status + result if complete
 - [x] What is the R2 bucket name and region? → `jokestracker-audio`, endpoint `https://4c3b4be75d916e4db343338e22dbfd48.r2.cloudflarestorage.com`
 - [x] What is the Modal app name? → `jokestracker` (workspace: `ernev-sharma-us`)
 - [x] Where does the SQLite file live in production? → `/data/db.sqlite` (Railway volume `tranquil-joy-volume` mounted at `/data`)
-- [x] What is the base URL for the deployed backend? → `http://localhost:8000` for local dev; update after first Railway deploy
+- [x] What is the base URL for the deployed backend? → `https://tranquil-joy-production-e0ef.up.railway.app`
 - [ ] Laugh attribution window — is 3 seconds post-line the right heuristic?
