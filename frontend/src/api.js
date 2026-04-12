@@ -37,7 +37,9 @@ export const updateAnnotation = (id, data) => req("PATCH", `/annotations/${id}`,
 export const deleteAnnotation = (id) => req("DELETE", `/annotations/${id}`);
 export const uploadAnnotationAudio = (id, file) => {
   const fd = new FormData();
-  fd.append("file", file);
+  // Give blobs a filename so python-multipart correctly parses the content-type
+  const name = file instanceof File ? file.name : "recording.webm";
+  fd.append("file", file, name);
   return req("POST", `/annotations/${id}/audio`, fd, true);
 };
 
@@ -58,7 +60,8 @@ export const getShow = (id) => req("GET", `/shows/${id}`);
 export const updateShow = (id, data) => req("PATCH", `/shows/${id}`, data);
 export const uploadShowAudio = (id, file) => {
   const fd = new FormData();
-  fd.append("file", file);
+  const name = file instanceof File ? file.name : "recording.webm";
+  fd.append("file", file, name);
   return req("POST", `/shows/${id}/audio`, fd, true);
 };
 

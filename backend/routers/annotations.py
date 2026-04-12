@@ -88,8 +88,12 @@ def upload_annotation_audio(
         raise HTTPException(404, "Annotation not found")
     if annotation.audio_key:
         raise HTTPException(409, "Audio already attached to this annotation")
-    data = file.file.read()
-    key = storage.upload(data, file.content_type or "audio/mpeg", prefix="annotations")
+    try:
+        data = file.file.read()
+        content_type = file.content_type or "audio/webm"
+        key = storage.upload(data, content_type, prefix="annotations")
+    except Exception as e:
+        raise HTTPException(500, f"R2 upload failed: {e}")
     annotation.audio_key = key
     session.add(annotation)
     session.commit()

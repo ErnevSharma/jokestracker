@@ -112,8 +112,11 @@ def upload_show_audio(
     if existing_job:
         raise HTTPException(409, "Analysis job already exists for this show")
 
-    data = file.file.read()
-    audio_key = storage.upload(data, file.content_type or "audio/mpeg", prefix="shows")
+    try:
+        data = file.file.read()
+        audio_key = storage.upload(data, file.content_type or "audio/webm", prefix="shows")
+    except Exception as e:
+        raise HTTPException(500, f"R2 upload failed: {e}")
 
     show.audio_key = audio_key
     session.add(show)
