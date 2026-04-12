@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  listBits, createBit, updateBit, deleteBit,
+  listBits, createBit, getBit, updateBit, deleteBit,
   getVersion, createVersion, createAnnotation, updateAnnotation,
   deleteAnnotation, uploadAnnotationAudio,
 } from "../api";
@@ -35,8 +35,7 @@ export default function BitsView() {
   useEffect(() => { reload(); }, []);
 
   async function selectBit(bit) {
-    // Fetch bit detail (includes versions list)
-    const res = await fetch(`/api/bits/${bit.id}`).then((r) => r.json());
+    const res = await getBit(bit.id);
     setSelected(res);
     setActiveVersion(null);
     setNewBody("");
@@ -60,7 +59,7 @@ export default function BitsView() {
     if (!selected || !newBody.trim()) return;
     await createVersion(selected.id, { body: newBody.trim() });
     setNewBody("");
-    const res = await fetch(`/api/bits/${selected.id}`).then((r) => r.json());
+    const res = await getBit(selected.id);
     setSelected(res);
     if (res.versions.length > 0) {
       const latest = res.versions[res.versions.length - 1];
