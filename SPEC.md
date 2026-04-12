@@ -224,10 +224,10 @@ GET    /jobs/:id                      → job status + result if complete
 - Both run inside a Modal function, not on the app server
 
 ### Infrastructure
-- Backend: Railway or Fly.io (always-on, small instance)
-- ML jobs: Modal (serverless GPU, spun up per job)
-- File storage: Cloudflare R2
-- Database: SQLite on persistent volume
+- Backend: Railway — project `endearing-rejoicing`, service `tranquil-joy` (always-on, small instance)
+- ML jobs: Modal — workspace `ernev-sharma-us`, app name `jokestracker` (serverless GPU, spun up per job)
+- File storage: Cloudflare R2 — bucket `jokestracker-audio`, endpoint `https://4c3b4be75d916e4db343338e22dbfd48.r2.cloudflarestorage.com`
+- Database: SQLite on persistent volume — production path `/data/db.sqlite` (volume `tranquil-joy-volume` mounted at `/data`)
 
 ---
 
@@ -317,8 +317,8 @@ GET    /jobs/:id                      → job status + result if complete
 
 > Fill these in before handing to Claude Code. Unresolved questions here will become bad assumptions in the code.
 
-- [ ] What is the R2 bucket name and region?
-- [ ] What is the Modal app name?
-- [ ] Where does the SQLite file live in production (Railway volume path)?
-- [ ] What is the base URL for the deployed backend (needed for frontend API config)?
+- [x] What is the R2 bucket name and region? → `jokestracker-audio`, endpoint `https://4c3b4be75d916e4db343338e22dbfd48.r2.cloudflarestorage.com`
+- [x] What is the Modal app name? → `jokestracker` (workspace: `ernev-sharma-us`)
+- [x] Where does the SQLite file live in production? → `/data/db.sqlite` (Railway volume `tranquil-joy-volume` mounted at `/data`)
+- [x] What is the base URL for the deployed backend? → `http://localhost:8000` for local dev; update after first Railway deploy
 - [ ] Laugh attribution window — is 3 seconds post-line the right heuristic?
