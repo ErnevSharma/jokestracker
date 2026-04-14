@@ -3,7 +3,7 @@ import React, { useState } from "react";
 /**
  * Renders version body text with annotation highlights.
  * Clicking a highlighted range shows the note.
- * Selecting text and pressing "Annotate" calls onAnnotate(start, end).
+ * Selecting text (mouse or touch) and pressing "Annotate" calls onAnnotate(start, end).
  */
 export default function AnnotatedText({ body, annotations = [], onAnnotate }) {
   const [tooltip, setTooltip] = useState(null); // { note, audio_key, x, y }
@@ -12,7 +12,7 @@ export default function AnnotatedText({ body, annotations = [], onAnnotate }) {
   // Build segments: split body into annotated/plain spans
   const segments = buildSegments(body, annotations);
 
-  function handleMouseUp() {
+  function handleSelectionEnd() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) { setSelection(null); return; }
     const range = sel.getRangeAt(0);
@@ -33,7 +33,7 @@ export default function AnnotatedText({ body, annotations = [], onAnnotate }) {
       <pre
         id="annotated-body"
         className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200 select-text"
-        onMouseUp={handleMouseUp}
+        onPointerUp={handleSelectionEnd}
       >
         {segments.map((seg, i) =>
           seg.annotation ? (
