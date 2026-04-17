@@ -2,7 +2,7 @@
 
 ## Overview
 
-A personal web app for a standup comedian to track the evolution of material. Bits are written and versioned, annotated with delivery notes, assembled into ordered sets, and performed at shows. Audio from shows is uploaded and analyzed to produce a transcript and per-line laugh heatmap.
+A personal web app for a standup comedian to track the evolution of material. Bits are written and versioned, annotated with delivery notes, assembled into ordered sets, and performed at shows. Audio from shows is uploaded and analyzed to produce a transcript and per-line laugh heatmap. Lines provide a separate space for quick brain dumps and unstructured ideas with voice memo support.
 
 The app is a PWA accessible from a phone browser. There is no authentication — it is a single-user personal deployment.
 
@@ -33,7 +33,7 @@ FastAPI (Railway)
 
 ## Data Model
 
-The data model has two independent lineages that converge at `Show`.
+The data model has three lineages: Material (versioned Bits), Sets (structured assemblies), and Lines (unstructured notes). Material and Sets converge at `Show`. Lines are independent.
 
 ### Lineage 1 — Material
 
@@ -60,6 +60,19 @@ ComedySet  ──(1:many)──  SetVersion  ──(1:many)──  SetVersionIte
 **SetVersion** is an immutable snapshot of a set's ordered contents. To reorder bits or swap a bit version, you create a new SetVersion. `version_num` auto-increments per ComedySet.
 
 **SetVersionItem** is a row in the ordered list. Each item references a specific `Version` (not just a Bit), so the exact text performed is captured. Items have a `position` integer for ordering.
+
+### Lineage 3 — Lines
+
+```
+Line  ──(1:many)──  LineAnnotation
+                         └── audio_key (R2)
+```
+
+**Line** is a free-form text note for quick ideas and brain dumps. Unlike Bits, Lines have no versioning — the `body` is directly mutable. Lines can be created, edited, and deleted. They exist independently from the Material and Sets lineages.
+
+**LineAnnotation** works identically to `Annotation` — it marks a character range within a Line's body, with a text note and optional audio memo. The same immutability rules apply: `char_start`, `char_end`, and `audio_key` are write-once; only `note` is patchable.
+
+Lines do not participate in Sets or Shows. They are a separate scratchpad for unpolished material and thoughts.
 
 ### Convergence — Shows
 
@@ -92,8 +105,10 @@ Immutability is enforced at the API layer — there are simply no PATCH or PUT e
 |---|---|---|
 | Version | `body` | — (nothing) |
 | Annotation | `char_start`, `char_end`, `audio_key` | `note` |
+| LineAnnotation | `char_start`, `char_end`, `audio_key` | `note` |
 | SetVersion | entire row | — |
 | SetVersionItem | entire row | — |
+| Line | — (nothing) | `body` |
 
 Bits use soft-delete (`status = dead`) instead of hard delete so Versions are never orphaned.
 
@@ -110,6 +125,8 @@ All routes return JSON. No pagination (personal app, small data). No authenticat
 | `/bits` | Bit CRUD, soft delete, appearances |
 | `/bits/:id/versions`, `/versions/:id` | Version create, read, diff |
 | `/versions/:id/annotations`, `/annotations/:id` | Annotation CRUD, audio upload/playback |
+| `/lines` | Line CRUD with direct body updates |
+| `/lines/:id/annotations`, `/lines/annotations/:id` | LineAnnotation CRUD, audio upload/playback |
 | `/sets`, `/sets/:id/versions`, `/set-versions/:id` | Set and SetVersion management |
 | `/shows`, `/shows/:id` | Show CRUD, audio upload |
 | `/jobs/:id` | Analysis job polling |
@@ -122,7 +139,7 @@ All routes return JSON. No pagination (personal app, small data). No authenticat
 
 **Audio upload** (`POST /annotations/:id/audio`, `POST /shows/:id/audio`): Multipart form upload. The backend reads the bytes, pushes to R2 via boto3, stores the returned object key in the database, and returns the key. The browser never talks to R2 directly.
 
-**Audio playback** (`GET /annotations/:id/audio`): Returns a short-lived (1 hour) presigned R2 URL. The browser fetches this URL directly from R2. The key is never embedded permanently in the frontend — each play request generates a fresh URL.
+**Audio playback** (`GET /annotations/:id/audio`, `GET /lines/annotations/:id/audio`): Streams audio directly through the FastAPI proxy. The backend downloads from R2 and returns the bytes with the correct content-type. This avoids R2 CORS configuration issues and keeps the R2 URL completely private.
 
 **Job callback** (`POST /internal/jobs/:id/complete`): Called by the Modal function when analysis finishes. Accepts the full result payload, writes `AnalysisResult`, and flips `AnalysisJob.status` to `complete`. The client polls `GET /jobs/:id` until it sees `complete`.
 
@@ -132,11 +149,12 @@ All routes return JSON. No pagination (personal app, small data). No authenticat
 
 R2 is an S3-compatible object store used to hold audio files. The backend communicates with R2 using `boto3` pointed at Cloudflare's S3-compatible endpoint.
 
-Two prefixes are used in the bucket:
+Three prefixes are used in the bucket:
 
 | Prefix | Content |
 |---|---|
-| `annotations/` | Delivery memo clips (per annotation) |
+| `annotations/` | Delivery memo clips (per Bit annotation) |
+| `line_annotations/` | Audio memos for Line annotations |
 | `shows/` | Full show recordings |
 
 Files are named `{prefix}/{uuid4}` with no extension. Content-type is stored as S3 object metadata and set at upload time.
@@ -183,11 +201,12 @@ The frontend is a React 18 + Vite 5 + Tailwind CSS 3 single-page app, configured
 
 ### Navigation
 
-No router. The app has three tabs managed by a `useState` in `App.jsx`:
+No router. The app has four tabs managed by a `useState` in `App.jsx`:
 
 | Tab | View |
 |---|---|
 | Bits | `BitsView` |
+| Lines | `LinesView` |
 | Sets | `SetsView` |
 | Shows | `ShowsView` |
 
@@ -206,11 +225,21 @@ All network calls go through a single `api.js` file. Every function is a thin wr
 
 **`AudioRecorder`** — Uses the browser `MediaRecorder` API to record audio from the microphone. States: `idle → requesting → recording → done`. Also accepts a file upload as a fallback. On stop, produces a `Blob` with type `audio/webm` and calls `onRecorded(blob)`.
 
-**`AnnotationPlayer`** — Renders a `▶ play` link for annotations that have audio. On click, calls `GET /annotations/:id/audio` to get a fresh presigned R2 URL, then renders a native `<audio>` element with `autoPlay`. URL is fetched lazily and not stored permanently.
+**`AnnotationPlayer`** — Renders a `▶ play` link for annotations that have audio. On click, fetches audio directly through the FastAPI proxy (supports both `/annotations/:id/audio` and `/lines/annotations/:id/audio` via an optional `apiPath` prop), then renders a native `<audio>` element with `autoPlay`. Audio is streamed through the backend to avoid R2 CORS issues.
 
 **`LaughHeatmap`** — Renders `line_scores` from an `AnalysisResult` as a list of lines, each with a coloured bar proportional to `laugh_count`. Colour scale: grey (0), yellow (<40%), orange (<70%), green (≥70%).
 
 **`SetBuilder`** — UI for composing a new SetVersion. Lists all non-dead Bits; clicking a Bit expands its versions. Clicking a version adds it to an ordered list. Items can be reordered with ↑/↓ and removed with ×. Submitting calls `POST /sets/:id/versions` with the ordered `[{version_id, position}]` array.
+
+### Views
+
+**`BitsView`** — Manages the versioned material lifecycle: creating Bits, adding Versions, and annotating text with delivery notes and audio memos. Displays version history timelines and the full annotation system.
+
+**`LinesView`** — Simple note-taking interface for unstructured ideas. Lines can be edited inline (unlike Bits), deleted, and annotated with the same character-range selection and audio memo system. Reuses `AnnotatedText`, `AudioRecorder`, and `AnnotationPlayer` components from BitsView.
+
+**`SetsView`** — Assembles ordered sets from Version snapshots using the `SetBuilder` component. Manages set versions and displays which shows each set was performed at.
+
+**`ShowsView`** — Records show performances with metadata (date, venue, crowd, rating), uploads show audio, and displays analysis results including transcripts and laugh heatmaps.
 
 ### PWA
 
