@@ -6,9 +6,9 @@ const BASE = import.meta.env.VITE_API_BASE ?? "";
  * Streams annotation audio directly through the FastAPI proxy.
  * No presigned URLs — avoids R2 CORS issues entirely.
  */
-export default function AnnotationPlayer({ annotationId }) {
+export default function AnnotationPlayer({ annotationId, apiPath }) {
   const [open, setOpen] = useState(false);
-  const src = `${BASE}/annotations/${annotationId}/audio`;
+  const src = apiPath ? `${BASE}${apiPath}` : `${BASE}/annotations/${annotationId}/audio`;
 
   if (!open) {
     return (

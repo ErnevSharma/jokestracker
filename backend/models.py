@@ -122,3 +122,20 @@ class AnalysisResult(SQLModel, table=True):
     line_scores: Optional[str] = Field(default=None)        # JSON string
     diff: Optional[str] = Field(default=None)               # JSON string
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Line(SQLModel, table=True):
+    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    body: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LineAnnotation(SQLModel, table=True):
+    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    line_id: UUID = Field(foreign_key="line.id")
+    char_start: int
+    char_end: int
+    note: Optional[str] = None
+    audio_key: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)

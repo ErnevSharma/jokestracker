@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import BitsView from "./views/BitsView";
 import SetsView from "./views/SetsView";
 import ShowsView from "./views/ShowsView";
+import LinesView from "./views/LinesView";
 
-const TABS = ["Bits", "Sets", "Shows"];
+const TABS = ["Bits", "Lines", "Sets", "Shows"];
 
 export default function App() {
   const [tab, setTab] = useState("Bits");
@@ -33,6 +34,7 @@ export default function App() {
       {/* Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
         {tab === "Bits" && <BitsView />}
+        {tab === "Lines" && <LinesView />}
         {tab === "Sets" && <SetsView />}
         {tab === "Shows" && <ShowsView />}
       </main>

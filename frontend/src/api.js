@@ -67,3 +67,19 @@ export const uploadShowAudio = (id, file) => {
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
 export const getJob = (id) => req("GET", `/jobs/${id}`);
+
+// ── Lines ─────────────────────────────────────────────────────────────────────
+export const listLines = () => req("GET", "/lines");
+export const createLine = (data) => req("POST", "/lines", data);
+export const getLine = (id) => req("GET", `/lines/${id}`);
+export const updateLine = (id, data) => req("PATCH", `/lines/${id}`, data);
+export const deleteLine = (id) => req("DELETE", `/lines/${id}`);
+export const createLineAnnotation = (lineId, data) => req("POST", `/lines/${lineId}/annotations`, data);
+export const updateLineAnnotation = (id, data) => req("PATCH", `/lines/annotations/${id}`, data);
+export const deleteLineAnnotation = (id) => req("DELETE", `/lines/annotations/${id}`);
+export const uploadLineAnnotationAudio = (id, file) => {
+  const fd = new FormData();
+  const name = file instanceof File ? file.name : "recording.webm";
+  fd.append("file", file, name);
+  return req("POST", `/lines/annotations/${id}/audio`, fd, true);
+};
