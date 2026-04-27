@@ -146,6 +146,17 @@ def _trigger_analysis(job_id: UUID, show: Show, session: Session):
 
     try:
         import modal
+        import os
+
+        # Configure Modal with environment credentials (Railway deployment)
+        token_id = os.environ.get("MODAL_TOKEN_ID")
+        token_secret = os.environ.get("MODAL_TOKEN_SECRET")
+        if token_id and token_secret:
+            modal.config.set_config(
+                token_id=token_id,
+                token_secret=token_secret
+            )
+
         fn = modal.Function.from_name(MODAL_APP_NAME, "analyze_show")
         fn.spawn(
             str(job_id),
