@@ -12,6 +12,22 @@ from backend.models import ComedySet, SetVersion, SetVersionItem, Version, Bit, 
 router = APIRouter(tags=["sets"])
 
 
+def require_set(set_id: UUID, session: Session) -> ComedySet:
+    """Fetch comedy set or raise 404."""
+    comedy_set = session.get(ComedySet, set_id)
+    if not comedy_set:
+        raise HTTPException(404, "Set not found")
+    return comedy_set
+
+
+def require_set_version(sv_id: UUID, session: Session) -> SetVersion:
+    """Fetch set version or raise 404."""
+    set_version = session.get(SetVersion, sv_id)
+    if not set_version:
+        raise HTTPException(404, "SetVersion not found")
+    return set_version
+
+
 class SetCreate(BaseModel):
     name: str
 
@@ -54,14 +70,12 @@ def create_set(body: SetCreate, session: Session = Depends(get_session)):
 
 @router.get("/sets/{set_id}")
 def get_set(set_id: UUID, session: Session = Depends(get_session)):
-    s = session.get(ComedySet, set_id)
-    if not s:
-        raise HTTPException(404, "Set not found")
+    comedy_set = require_set(set_id, session)
     versions = session.exec(
         select(SetVersion).where(SetVersion.set_id == set_id).order_by(SetVersion.version_num)
     ).all()
     return {
-        **s.model_dump(),
+        **comedy_set.model_dump(),
         "set_versions": [
             {"id": sv.id, "version_num": sv.version_num, "created_at": sv.created_at}
             for sv in versions
@@ -71,41 +85,34 @@ def get_set(set_id: UUID, session: Session = Depends(get_session)):
 
 @router.patch("/sets/{set_id}")
 def update_set(set_id: UUID, body: SetUpdate, session: Session = Depends(get_session)):
-    s = session.get(ComedySet, set_id)
-    if not s:
-        raise HTTPException(404, "Set not found")
-    s.name = body.name
-    s.updated_at = datetime.utcnow()
-    session.add(s)
+    comedy_set = require_set(set_id, session)
+    comedy_set.name = body.name
+    comedy_set.updated_at = datetime.utcnow()
+    session.add(comedy_set)
     session.commit()
-    session.refresh(s)
-    return s
+    session.refresh(comedy_set)
+    return comedy_set
 
 
 @router.get("/sets/{set_id}/shows")
 def get_set_shows(set_id: UUID, session: Session = Depends(get_session)):
-    s = session.get(ComedySet, set_id)
-    if not s:
-        raise HTTPException(404, "Set not found")
+    require_set(set_id, session)
     set_versions = session.exec(
         select(SetVersion).where(SetVersion.set_id == set_id)
     ).all()
     sv_ids = [sv.id for sv in set_versions]
     if not sv_ids:
         return []
-    shows = session.exec(
+    return session.exec(
         select(Show).where(Show.set_version_id.in_(sv_ids))
     ).all()
-    return shows
 
 
 # ── Set Versions ──────────────────────────────────────────────────────────────
 
 @router.get("/sets/{set_id}/versions")
 def list_set_versions(set_id: UUID, session: Session = Depends(get_session)):
-    s = session.get(ComedySet, set_id)
-    if not s:
-        raise HTTPException(404, "Set not found")
+    require_set(set_id, session)
     set_versions = session.exec(
         select(SetVersion).where(SetVersion.set_id == set_id).order_by(SetVersion.version_num)
     ).all()
@@ -120,9 +127,7 @@ def list_set_versions(set_id: UUID, session: Session = Depends(get_session)):
 
 @router.post("/sets/{set_id}/versions", status_code=201)
 def create_set_version(set_id: UUID, body: SetVersionCreate, session: Session = Depends(get_session)):
-    s = session.get(ComedySet, set_id)
-    if not s:
-        raise HTTPException(404, "Set not found")
+    require_set(set_id, session)
 
     # Validate all version_ids exist
     for item in body.items:
@@ -150,10 +155,7 @@ def create_set_version(set_id: UUID, body: SetVersionCreate, session: Session = 
 
 @router.get("/set-versions/{sv_id}")
 def get_set_version(sv_id: UUID, session: Session = Depends(get_session)):
-    sv = session.get(SetVersion, sv_id)
-    if not sv:
-        raise HTTPException(404, "SetVersion not found")
-
+    sv = require_set_version(sv_id, session)
     items = session.exec(
         select(SetVersionItem).where(SetVersionItem.set_version_id == sv_id).order_by(SetVersionItem.position)
     ).all()

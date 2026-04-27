@@ -1,4 +1,6 @@
 import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,7 +8,14 @@ from fastapi.staticfiles import StaticFiles
 from backend.db import create_db
 from backend.routers import bits, versions, annotations, sets, shows, analysis, lines
 
-app = FastAPI(title="Comedy Set Tracker")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db()
+    yield
+
+
+app = FastAPI(title="Comedy Set Tracker", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,11 +31,6 @@ app.include_router(sets.router)
 app.include_router(shows.router)
 app.include_router(analysis.router)
 app.include_router(lines.router)
-
-
-@app.on_event("startup")
-def on_startup():
-    create_db()
 
 
 @app.get("/health")

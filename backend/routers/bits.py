@@ -12,6 +12,14 @@ from backend.models import Bit, BitStatus, Version, SetVersionItem, SetVersion, 
 router = APIRouter(prefix="/bits", tags=["bits"])
 
 
+def require_bit(bit_id: UUID, session: Session) -> Bit:
+    """Fetch bit or raise 404."""
+    bit = session.get(Bit, bit_id)
+    if not bit:
+        raise HTTPException(404, "Bit not found")
+    return bit
+
+
 class BitCreate(BaseModel):
     title: str
     status: BitStatus = BitStatus.drafting
@@ -51,9 +59,7 @@ def create_bit(body: BitCreate, session: Session = Depends(get_session)):
 
 @router.get("/{bit_id}")
 def get_bit(bit_id: UUID, session: Session = Depends(get_session)):
-    bit = session.get(Bit, bit_id)
-    if not bit:
-        raise HTTPException(404, "Bit not found")
+    bit = require_bit(bit_id, session)
     versions = session.exec(
         select(Version).where(Version.bit_id == bit_id).order_by(Version.version_num)
     ).all()
@@ -68,11 +74,8 @@ def get_bit(bit_id: UUID, session: Session = Depends(get_session)):
 
 @router.patch("/{bit_id}")
 def update_bit(bit_id: UUID, body: BitUpdate, session: Session = Depends(get_session)):
-    bit = session.get(Bit, bit_id)
-    if not bit:
-        raise HTTPException(404, "Bit not found")
-    updates = body.model_dump(exclude_unset=True)
-    for k, v in updates.items():
+    bit = require_bit(bit_id, session)
+    for k, v in body.model_dump(exclude_unset=True).items():
         setattr(bit, k, v)
     bit.updated_at = datetime.utcnow()
     session.add(bit)
@@ -85,9 +88,7 @@ def update_bit(bit_id: UUID, body: BitUpdate, session: Session = Depends(get_ses
 
 @router.delete("/{bit_id}", status_code=204)
 def delete_bit(bit_id: UUID, session: Session = Depends(get_session)):
-    bit = session.get(Bit, bit_id)
-    if not bit:
-        raise HTTPException(404, "Bit not found")
+    bit = require_bit(bit_id, session)
     bit.status = BitStatus.dead
     bit.updated_at = datetime.utcnow()
     session.add(bit)
@@ -98,10 +99,7 @@ def delete_bit(bit_id: UUID, session: Session = Depends(get_session)):
 
 @router.get("/{bit_id}/appearances")
 def get_appearances(bit_id: UUID, session: Session = Depends(get_session)):
-    bit = session.get(Bit, bit_id)
-    if not bit:
-        raise HTTPException(404, "Bit not found")
-
+    bit = require_bit(bit_id, session)
     versions = session.exec(
         select(Version).where(Version.bit_id == bit_id).order_by(Version.version_num)
     ).all()

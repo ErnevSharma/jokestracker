@@ -13,6 +13,22 @@ from backend import storage
 router = APIRouter(tags=["annotations"])
 
 
+def require_version(version_id: UUID, session: Session) -> Version:
+    """Fetch version or raise 404."""
+    version = session.get(Version, version_id)
+    if not version:
+        raise HTTPException(404, "Version not found")
+    return version
+
+
+def require_annotation(annotation_id: UUID, session: Session) -> Annotation:
+    """Fetch annotation or raise 404."""
+    annotation = session.get(Annotation, annotation_id)
+    if not annotation:
+        raise HTTPException(404, "Annotation not found")
+    return annotation
+
+
 class AnnotationCreate(BaseModel):
     char_start: int
     char_end: int
@@ -27,9 +43,7 @@ class AnnotationUpdate(BaseModel):
 
 @router.get("/versions/{version_id}/annotations")
 def list_annotations(version_id: UUID, session: Session = Depends(get_session)):
-    version = session.get(Version, version_id)
-    if not version:
-        raise HTTPException(404, "Version not found")
+    require_version(version_id, session)
     return session.exec(
         select(Annotation).where(Annotation.version_id == version_id)
     ).all()
@@ -39,9 +53,7 @@ def list_annotations(version_id: UUID, session: Session = Depends(get_session)):
 
 @router.post("/versions/{version_id}/annotations", status_code=201)
 def create_annotation(version_id: UUID, body: AnnotationCreate, session: Session = Depends(get_session)):
-    version = session.get(Version, version_id)
-    if not version:
-        raise HTTPException(404, "Version not found")
+    version = require_version(version_id, session)
     if body.char_start < 0 or body.char_end > len(version.body) or body.char_start >= body.char_end:
         raise HTTPException(422, "char_start/char_end out of range")
     annotation = Annotation(version_id=version_id, **body.model_dump())
@@ -55,9 +67,7 @@ def create_annotation(version_id: UUID, body: AnnotationCreate, session: Session
 
 @router.patch("/annotations/{annotation_id}")
 def update_annotation(annotation_id: UUID, body: AnnotationUpdate, session: Session = Depends(get_session)):
-    annotation = session.get(Annotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_annotation(annotation_id, session)
     annotation.note = body.note
     session.add(annotation)
     session.commit()
@@ -69,9 +79,7 @@ def update_annotation(annotation_id: UUID, body: AnnotationUpdate, session: Sess
 
 @router.delete("/annotations/{annotation_id}", status_code=204)
 def delete_annotation(annotation_id: UUID, session: Session = Depends(get_session)):
-    annotation = session.get(Annotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_annotation(annotation_id, session)
     session.delete(annotation)
     session.commit()
 
@@ -80,9 +88,7 @@ def delete_annotation(annotation_id: UUID, session: Session = Depends(get_sessio
 
 @router.get("/annotations/{annotation_id}/audio")
 def get_annotation_audio(annotation_id: UUID, session: Session = Depends(get_session)):
-    annotation = session.get(Annotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_annotation(annotation_id, session)
     if not annotation.audio_key:
         raise HTTPException(404, "No audio attached to this annotation")
     try:
@@ -100,15 +106,12 @@ def upload_annotation_audio(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ):
-    annotation = session.get(Annotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_annotation(annotation_id, session)
     if annotation.audio_key:
         raise HTTPException(409, "Audio already attached to this annotation")
     try:
         data = file.file.read()
-        content_type = file.content_type or "audio/webm"
-        key = storage.upload(data, content_type, prefix="annotations")
+        key = storage.upload(data, file.content_type or "audio/webm", prefix="annotations")
     except Exception as e:
         raise HTTPException(500, f"R2 upload failed: {e}")
     annotation.audio_key = key

@@ -14,6 +14,22 @@ from backend import storage
 router = APIRouter(prefix="/lines", tags=["lines"])
 
 
+def require_line(line_id: UUID, session: Session) -> Line:
+    """Fetch line or raise 404."""
+    line = session.get(Line, line_id)
+    if not line:
+        raise HTTPException(404, "Line not found")
+    return line
+
+
+def require_line_annotation(annotation_id: UUID, session: Session) -> LineAnnotation:
+    """Fetch line annotation or raise 404."""
+    annotation = session.get(LineAnnotation, annotation_id)
+    if not annotation:
+        raise HTTPException(404, "Annotation not found")
+    return annotation
+
+
 class LineCreate(BaseModel):
     body: str
 
@@ -55,9 +71,7 @@ def create_line(body: LineCreate, session: Session = Depends(get_session)):
 
 @router.get("/{line_id}")
 def get_line(line_id: UUID, session: Session = Depends(get_session)):
-    line = session.get(Line, line_id)
-    if not line:
-        raise HTTPException(404, "Line not found")
+    line = require_line(line_id, session)
     annotations = session.exec(
         select(LineAnnotation).where(LineAnnotation.line_id == line_id)
     ).all()
@@ -68,9 +82,7 @@ def get_line(line_id: UUID, session: Session = Depends(get_session)):
 
 @router.patch("/{line_id}")
 def update_line(line_id: UUID, body: LineUpdate, session: Session = Depends(get_session)):
-    line = session.get(Line, line_id)
-    if not line:
-        raise HTTPException(404, "Line not found")
+    line = require_line(line_id, session)
     line.body = body.body
     line.updated_at = datetime.utcnow()
     session.add(line)
@@ -83,9 +95,7 @@ def update_line(line_id: UUID, body: LineUpdate, session: Session = Depends(get_
 
 @router.delete("/{line_id}", status_code=204)
 def delete_line(line_id: UUID, session: Session = Depends(get_session)):
-    line = session.get(Line, line_id)
-    if not line:
-        raise HTTPException(404, "Line not found")
+    line = require_line(line_id, session)
     # Delete all annotations first
     annotations = session.exec(
         select(LineAnnotation).where(LineAnnotation.line_id == line_id)
@@ -102,9 +112,7 @@ def delete_line(line_id: UUID, session: Session = Depends(get_session)):
 def create_line_annotation(
     line_id: UUID, body: LineAnnotationCreate, session: Session = Depends(get_session)
 ):
-    line = session.get(Line, line_id)
-    if not line:
-        raise HTTPException(404, "Line not found")
+    line = require_line(line_id, session)
     if body.char_start < 0 or body.char_end > len(line.body) or body.char_start >= body.char_end:
         raise HTTPException(422, "char_start/char_end out of range")
     annotation = LineAnnotation(line_id=line_id, **body.model_dump())
@@ -118,9 +126,7 @@ def create_line_annotation(
 def update_line_annotation(
     annotation_id: UUID, body: LineAnnotationUpdate, session: Session = Depends(get_session)
 ):
-    annotation = session.get(LineAnnotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_line_annotation(annotation_id, session)
     annotation.note = body.note
     session.add(annotation)
     session.commit()
@@ -130,9 +136,7 @@ def update_line_annotation(
 
 @router.delete("/annotations/{annotation_id}", status_code=204)
 def delete_line_annotation(annotation_id: UUID, session: Session = Depends(get_session)):
-    annotation = session.get(LineAnnotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_line_annotation(annotation_id, session)
     session.delete(annotation)
     session.commit()
 
@@ -141,9 +145,7 @@ def delete_line_annotation(annotation_id: UUID, session: Session = Depends(get_s
 
 @router.get("/annotations/{annotation_id}/audio")
 def get_line_annotation_audio(annotation_id: UUID, session: Session = Depends(get_session)):
-    annotation = session.get(LineAnnotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_line_annotation(annotation_id, session)
     if not annotation.audio_key:
         raise HTTPException(404, "No audio attached to this annotation")
     try:
@@ -159,15 +161,12 @@ def upload_line_annotation_audio(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ):
-    annotation = session.get(LineAnnotation, annotation_id)
-    if not annotation:
-        raise HTTPException(404, "Annotation not found")
+    annotation = require_line_annotation(annotation_id, session)
     if annotation.audio_key:
         raise HTTPException(409, "Audio already attached to this annotation")
     try:
         data = file.file.read()
-        content_type = file.content_type or "audio/webm"
-        key = storage.upload(data, content_type, prefix="line_annotations")
+        key = storage.upload(data, file.content_type or "audio/webm", prefix="line_annotations")
     except Exception as e:
         raise HTTPException(500, f"R2 upload failed: {e}")
     annotation.audio_key = key

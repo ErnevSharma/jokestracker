@@ -13,6 +13,14 @@ from backend import storage
 router = APIRouter(prefix="/shows", tags=["shows"])
 
 
+def require_show(show_id: UUID, session: Session) -> Show:
+    """Fetch show or raise 404."""
+    show = session.get(Show, show_id)
+    if not show:
+        raise HTTPException(404, "Show not found")
+    return show
+
+
 class ShowCreate(BaseModel):
     set_version_id: UUID
     date: date
@@ -56,9 +64,7 @@ def create_show(body: ShowCreate, session: Session = Depends(get_session)):
 
 @router.get("/{show_id}")
 def get_show(show_id: UUID, session: Session = Depends(get_session)):
-    show = session.get(Show, show_id)
-    if not show:
-        raise HTTPException(404, "Show not found")
+    show = require_show(show_id, session)
 
     job = session.exec(
         select(AnalysisJob).where(AnalysisJob.show_id == show_id)
@@ -81,9 +87,7 @@ def get_show(show_id: UUID, session: Session = Depends(get_session)):
 
 @router.patch("/{show_id}")
 def update_show(show_id: UUID, body: ShowUpdate, session: Session = Depends(get_session)):
-    show = session.get(Show, show_id)
-    if not show:
-        raise HTTPException(404, "Show not found")
+    show = require_show(show_id, session)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(show, k, v)
     session.add(show)
@@ -100,9 +104,7 @@ def upload_show_audio(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ):
-    show = session.get(Show, show_id)
-    if not show:
-        raise HTTPException(404, "Show not found")
+    show = require_show(show_id, session)
     if show.audio_key:
         raise HTTPException(409, "Audio already uploaded for this show")
 

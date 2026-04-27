@@ -13,6 +13,14 @@ from backend.models import AnalysisJob, AnalysisResult, JobStatus
 router = APIRouter(tags=["analysis"])
 
 
+def require_job(job_id: UUID, session: Session) -> AnalysisJob:
+    """Fetch analysis job or raise 404."""
+    job = session.get(AnalysisJob, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
+
+
 class JobCompletePayload(BaseModel):
     whisper_transcript: str
     word_timestamps: list  # Word-level timestamps from Whisper
@@ -25,10 +33,7 @@ class JobCompletePayload(BaseModel):
 
 @router.get("/jobs/{job_id}")
 def get_job(job_id: UUID, session: Session = Depends(get_session)):
-    job = session.get(AnalysisJob, job_id)
-    if not job:
-        raise HTTPException(404, "Job not found")
-
+    job = require_job(job_id, session)
     result = None
     if job.status == JobStatus.complete:
         result = session.exec(
@@ -45,9 +50,7 @@ def get_job(job_id: UUID, session: Session = Depends(get_session)):
 
 @router.post("/internal/jobs/{job_id}/complete", include_in_schema=False)
 def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = Depends(get_session)):
-    job = session.get(AnalysisJob, job_id)
-    if not job:
-        raise HTTPException(404, "Job not found")
+    job = require_job(job_id, session)
 
     # Store initial result without Claude analysis
     result = AnalysisResult(
@@ -190,9 +193,7 @@ Output ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 
 @router.post("/internal/jobs/{job_id}/fail", include_in_schema=False)
 def fail_job(job_id: UUID, error: str, session: Session = Depends(get_session)):
-    job = session.get(AnalysisJob, job_id)
-    if not job:
-        raise HTTPException(404, "Job not found")
+    job = require_job(job_id, session)
     job.status = JobStatus.failed
     job.error = error
     job.completed_at = datetime.utcnow()
