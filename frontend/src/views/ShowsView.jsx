@@ -79,10 +79,6 @@ export default function ShowsView() {
     listShows().then(setShows);
   }
 
-  const lineScores = selected?.result?.line_scores
-    ? JSON.parse(selected.result.line_scores)
-    : null;
-
   return (
     <div className="space-y-6">
       {/* Create show */}
@@ -222,22 +218,21 @@ export default function ShowsView() {
             <p className="text-sm text-red-400">Analysis failed: {selected.job.error}</p>
           )}
 
-          {/* Analysis result */}
+          {/* Analysis result - Transcript with laugh heatmap */}
           {selected.result && (
-            <div className="border-t border-gray-800 pt-4 space-y-4">
-              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Laugh Heatmap</p>
-              {lineScores ? (
-                <LaughHeatmap lineScores={lineScores} />
-              ) : (
-                <p className="text-xs text-gray-500">No line data</p>
-              )}
-
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer hover:text-gray-300">Transcript</summary>
-                <pre className="mt-2 whitespace-pre-wrap text-gray-400 text-xs leading-relaxed">
-                  {selected.result.whisper_transcript}
-                </pre>
-              </details>
+            <div className="border-t border-gray-800 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Transcript & Laugh Detection</p>
+                {selected.result.laugh_timestamps && JSON.parse(selected.result.laugh_timestamps).length > 0 && (
+                  <span className="text-xs text-green-400">
+                    {JSON.parse(selected.result.laugh_timestamps).length} laughs detected
+                  </span>
+                )}
+              </div>
+              <LaughHeatmap
+                transcript={selected.result.whisper_transcript}
+                laughTimestamps={selected.result.laugh_timestamps}
+              />
             </div>
           )}
         </div>
