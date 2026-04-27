@@ -43,7 +43,9 @@ class LaughterDetector:
     def _load_checkpoint(self, checkpoint_path):
         """Load model weights from checkpoint."""
         map_location = torch.device(self.device)
-        checkpoint = torch.load(checkpoint_path, map_location=map_location)
+        # PyTorch 2.6+ requires weights_only=False for older checkpoints
+        # This checkpoint is from our trusted training (PyTorch 1.3.1)
+        checkpoint = torch.load(checkpoint_path, map_location=map_location, weights_only=False)
         self.model.load_state_dict(checkpoint['state_dict'])
 
     def detect(self, audio_path):
