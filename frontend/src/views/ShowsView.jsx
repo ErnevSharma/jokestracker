@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { listShows, createShow, getShow, updateShow, uploadShowAudio, getJob, listSets, listSetVersions } from "../api";
+import ClaudeHeatmap from "../components/ClaudeHeatmap";
 import LaughHeatmap from "../components/LaughHeatmap";
 import AudioRecorder from "../components/AudioRecorder";
 
@@ -218,21 +219,40 @@ export default function ShowsView() {
             <p className="text-sm text-red-400">Analysis failed: {selected.job.error}</p>
           )}
 
-          {/* Analysis result - Transcript with laugh heatmap */}
+          {/* Analysis result - AI-powered or basic heatmap */}
           {selected.result && (
             <div className="border-t border-gray-800 pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Transcript & Laugh Detection</p>
-                {selected.result.laugh_timestamps && JSON.parse(selected.result.laugh_timestamps).length > 0 && (
-                  <span className="text-xs text-green-400">
-                    {JSON.parse(selected.result.laugh_timestamps).length} laughs detected
-                  </span>
-                )}
-              </div>
-              <LaughHeatmap
-                transcript={selected.result.whisper_transcript}
-                laughTimestamps={selected.result.laugh_timestamps}
-              />
+              {/* Use Claude analysis if available, otherwise fall back to basic heatmap */}
+              {selected.result.claude_analysis ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                      AI Performance Analysis
+                    </p>
+                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
+                      Powered by Claude
+                    </span>
+                  </div>
+                  <ClaudeHeatmap claudeAnalysis={selected.result.claude_analysis} />
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                      Transcript & Laugh Detection
+                    </p>
+                    {selected.result.laugh_timestamps && JSON.parse(selected.result.laugh_timestamps).length > 0 && (
+                      <span className="text-xs text-green-400">
+                        {JSON.parse(selected.result.laugh_timestamps).length} laughs detected
+                      </span>
+                    )}
+                  </div>
+                  <LaughHeatmap
+                    transcript={selected.result.whisper_transcript}
+                    laughTimestamps={selected.result.laugh_timestamps}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>

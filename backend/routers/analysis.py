@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,7 @@ class JobCompletePayload(BaseModel):
     laugh_timestamps: list
     line_scores: list
     diff: list
+    claude_analysis: Optional[str] = None
 
 
 # ── Poll job status ───────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = D
         laugh_timestamps=json.dumps(payload.laugh_timestamps),
         line_scores=json.dumps(payload.line_scores),
         diff=json.dumps(payload.diff),
+        claude_analysis=payload.claude_analysis,  # Already JSON string from Modal
     )
     session.add(result)
 

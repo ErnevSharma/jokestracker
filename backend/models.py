@@ -121,6 +121,7 @@ class AnalysisResult(SQLModel, table=True):
     laugh_timestamps: Optional[str] = Field(default=None)   # JSON string
     line_scores: Optional[str] = Field(default=None)        # JSON string
     diff: Optional[str] = Field(default=None)               # JSON string
+    claude_analysis: Optional[str] = Field(default=None)    # JSON string with AI-powered joke segmentation
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
