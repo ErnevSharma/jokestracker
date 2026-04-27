@@ -10,13 +10,14 @@ import tempfile
 import modal
 
 # Image with all ML deps including laughter detection
+# Use CUDA base image for GPU support (includes libcublas and CUDA runtime)
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry("nvidia/cuda:12.1.0-runtime-ubuntu22.04", add_python="3.11")
     .pip_install(
         "faster-whisper==1.0.3",
         "boto3",
         "requests",
-        "torch",
+        "torch",  # Will use CUDA 12.1 from base image
         "torchaudio",
         # Laughter detection dependencies
         "librosa>=0.10",           # Audio processing & feature extraction
@@ -24,6 +25,7 @@ image = (
         "numpy>=1.20",             # Array operations
         "soundfile>=0.12",         # Audio file I/O
         "imageio-ffmpeg>=0.5",     # CRITICAL: MP3 decoding (bundles ffmpeg)
+        "nvidia-cudnn-cu12",       # Explicit CUDA DNN library
     )
     .add_local_dir(
         "backend/jobs/laugh_model",
