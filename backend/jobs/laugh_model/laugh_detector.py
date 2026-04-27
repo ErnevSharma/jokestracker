@@ -96,7 +96,9 @@ class LaughterDetector:
 
     def _predict(self, features):
         """
-        Run model inference on features.
+        Run model inference on features using sliding windows.
+
+        The model expects windows of 44 consecutive frames (time steps).
 
         Args:
             features: Array of shape (time_steps, n_mels)
@@ -104,20 +106,32 @@ class LaughterDetector:
         Returns:
             Array of probabilities for each time step
         """
-        probs = []
+        n_frames = 44  # Window size used in training
         batch_size = 8
 
-        # Process in batches
-        num_batches = int(np.ceil(len(features) / batch_size))
+        # Create sliding windows: each sample is 44 consecutive frames
+        num_windows = len(features) - n_frames
+        if num_windows <= 0:
+            # Audio too short, pad features
+            padding = n_frames - len(features)
+            features = np.pad(features, ((0, padding), (0, 0)), mode='constant')
+            num_windows = 1
+
+        probs = []
 
         with torch.no_grad():
-            for i in range(num_batches):
-                start_idx = i * batch_size
-                end_idx = min((i + 1) * batch_size, len(features))
-                batch = features[start_idx:end_idx]
+            for i in range(0, num_windows, batch_size):
+                # Create batch of windows
+                batch_windows = []
+                for j in range(i, min(i + batch_size, num_windows)):
+                    window = features[j:j+n_frames]  # Shape: (44, n_mels)
+                    batch_windows.append(window)
 
-                # Add channel dimension and convert to tensor
-                batch = np.expand_dims(batch, 1)  # (batch, 1, time, freq)
+                # Stack into batch and add channel dimension
+                batch = np.stack(batch_windows, axis=0)  # (batch, 44, n_mels)
+                batch = np.expand_dims(batch, 1)  # (batch, 1, 44, n_mels)
+
+                # Convert to tensor
                 x = torch.from_numpy(batch).float().to(self.device)
 
                 # Run inference
