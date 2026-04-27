@@ -9,9 +9,7 @@ import tempfile
 
 import modal
 
-# Image with all ML deps
-# Note: LaughterSegmentation is not pip-installable; _detect_laughs returns []
-# until an installable package is available.
+# Image with all ML deps including laughter detection
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -20,6 +18,16 @@ image = (
         "requests",
         "torch",
         "torchaudio",
+        # Laughter detection dependencies
+        "librosa>=0.10",           # Audio processing & feature extraction
+        "scipy>=1.6",              # Signal processing (lowpass filter)
+        "numpy>=1.20",             # Array operations
+        "soundfile>=0.12",         # Audio file I/O
+        "imageio-ffmpeg>=0.5",     # CRITICAL: MP3 decoding (bundles ffmpeg)
+    )
+    .add_local_dir(
+        "backend/jobs/laugh_model",
+        remote_path="/root/laugh_model"
     )
 )
 
@@ -96,13 +104,23 @@ def analyze_show(job_id: str, audio_key: str, set_text: str, callback_url: str):
 
 
 def _detect_laughs(audio_path: str) -> list:
-    """Run LaughterSegmentation model and return [{start, end}] list."""
+    """Run laughter detection model and return [{start, end}] list."""
     try:
-        from laughter_segmentation import LaughterDetector
-        detector = LaughterDetector()
+        import sys
+        sys.path.insert(0, '/root/laugh_model')
+        from laugh_detector import LaughterDetector
+
+        detector = LaughterDetector(
+            model_path='/root/laugh_model/best.pth.tar',
+            device='cuda',  # Use T4 GPU
+            threshold=0.5,
+            min_length=0.2
+        )
         segments = detector.detect(audio_path)
-        return [{"start": s.start, "end": s.end} for s in segments]
-    except Exception:
+        return [{"start": float(s[0]), "end": float(s[1])} for s in segments]
+    except Exception as e:
+        # Graceful degradation - system continues without laugh detection
+        print(f"Laugh detection failed: {e}")
         return []
 
 
