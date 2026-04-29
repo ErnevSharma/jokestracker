@@ -25,8 +25,6 @@ class JobCompletePayload(BaseModel):
     whisper_transcript: str
     word_timestamps: list  # Word-level timestamps from Whisper
     laugh_timestamps: list
-    line_scores: list
-    diff: list
 
 
 # ── Poll job status ───────────────────────────────────────────────────────────
@@ -57,8 +55,6 @@ def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = D
         analysis_job_id=job_id,
         whisper_transcript=payload.whisper_transcript,
         laugh_timestamps=json.dumps(payload.laugh_timestamps),
-        line_scores=json.dumps(payload.line_scores),
-        diff=json.dumps(payload.diff),
         claude_analysis=None,  # Will be added below
     )
     session.add(result)

@@ -2,7 +2,6 @@
 Modal function for show audio analysis.
 Deploy with: modal deploy backend/jobs/analyze.py
 """
-import difflib
 import json
 import os
 import tempfile
@@ -34,8 +33,6 @@ image = (
 )
 
 app = modal.App("jokestracker", image=image)
-
-LAUGH_WINDOW = 3.0  # seconds after line end to attribute laughs
 
 
 @app.function(
@@ -76,18 +73,6 @@ def analyze_show(job_id: str, audio_key: str, set_text: str, callback_url: str):
         # ── Laugh detection ───────────────────────────────────────────────────
         laugh_timestamps = _detect_laughs(audio_path)
 
-        # ── Map laughs to lines ───────────────────────────────────────────────
-        lines = [l for l in set_text.splitlines() if l.strip()]
-        line_scores = _score_lines(lines, words, laugh_timestamps)
-
-        # ── Diff planned vs transcript ────────────────────────────────────────
-        planned_lines = set_text.splitlines()
-        transcript_lines = whisper_transcript.splitlines()
-        matcher = difflib.SequenceMatcher(None, planned_lines, transcript_lines)
-        diff = [
-            {"tag": tag, "a_start": i1, "a_end": i2, "b_start": j1, "b_end": j2}
-            for tag, i1, i2, j1, j2 in matcher.get_opcodes()
-        ]
 
         # ── Callback to backend ───────────────────────────────────────────────
         # Backend will run Claude analysis after receiving this callback
@@ -97,8 +82,6 @@ def analyze_show(job_id: str, audio_key: str, set_text: str, callback_url: str):
             "whisper_transcript": whisper_transcript,
             "word_timestamps": word_timestamps,
             "laugh_timestamps": laugh_timestamps,
-            "line_scores": line_scores,
-            "diff": diff,
         }, timeout=30)
 
     except Exception as e:
@@ -128,43 +111,3 @@ def _detect_laughs(audio_path: str) -> list:
         # Graceful degradation - system continues without laugh detection
         print(f"Laugh detection failed: {e}")
         return []
-
-
-def _score_lines(lines: list, words: list, laugh_timestamps: list) -> list:
-    """Attribute laughs to lines based on word timestamps."""
-    if not words:
-        return [{"line": l, "laugh_count": 0, "laugh_duration": 0.0} for l in lines]
-
-    word_idx = 0
-    scores = []
-
-    for line in lines:
-        line_words = line.split()
-        matched = []
-
-        for lw in line_words:
-            if word_idx < len(words) and _fuzzy_match(words[word_idx].word, lw):
-                matched.append(words[word_idx])
-                word_idx += 1
-
-        if not matched:
-            scores.append({"line": line, "laugh_count": 0, "laugh_duration": 0.0})
-            continue
-
-        line_end = matched[-1].end
-        window_end = line_end + LAUGH_WINDOW
-
-        count = 0
-        duration = 0.0
-        for laugh in laugh_timestamps:
-            if laugh["start"] >= line_end and laugh["start"] <= window_end:
-                count += 1
-                duration += laugh["end"] - laugh["start"]
-
-        scores.append({"line": line, "laugh_count": count, "laugh_duration": round(duration, 2)})
-
-    return scores
-
-
-def _fuzzy_match(a: str, b: str) -> bool:
-    return a.strip().lower().rstrip(".,!?") == b.strip().lower().rstrip(".,!?")
