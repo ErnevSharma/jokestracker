@@ -66,11 +66,15 @@ def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = D
     session.refresh(result)
 
     # Run Claude analysis (synchronous - takes ~5s)
+    print(f"Starting Claude analysis for job {job_id}...")
     claude_analysis = _analyze_with_claude(payload.word_timestamps, payload.laugh_timestamps)
     if claude_analysis:
+        print(f"✓ Claude analysis succeeded for job {job_id}")
         result.claude_analysis = claude_analysis
         session.add(result)
         session.commit()
+    else:
+        print(f"✗ Claude analysis returned None for job {job_id}")
 
     return {"ok": True}
 
@@ -183,7 +187,9 @@ Output ONLY valid JSON (no markdown, no code blocks) with this exact structure:
         return analysis_text
 
     except Exception as e:
+        import traceback
         print(f"Claude analysis failed: {e}")
+        print(traceback.format_exc())
         return None
 
 
