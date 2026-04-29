@@ -161,7 +161,7 @@ Output ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 }}"""
 
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-5-sonnet-20241022",  # Use widely-available Sonnet 3.5
             max_tokens=4000,
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
