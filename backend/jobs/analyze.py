@@ -82,7 +82,7 @@ def analyze_show(job_id: str, audio_key: str, set_text: str, callback_url: str):
             "whisper_transcript": whisper_transcript,
             "word_timestamps": word_timestamps,
             "laugh_timestamps": laugh_timestamps,
-        }, timeout=30)
+        }, timeout=60)  # Backend now returns immediately, Claude runs in background
 
     except Exception as e:
         fail_url = callback_url.replace("/complete", "/fail")
