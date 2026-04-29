@@ -47,7 +47,7 @@ def get_job(job_id: UUID, session: Session = Depends(get_session)):
 # ── Modal callback ────────────────────────────────────────────────────────────
 
 @router.post("/internal/jobs/{job_id}/complete", include_in_schema=False)
-def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = Depends(get_session)):
+async def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = Depends(get_session)):
     job = require_job(job_id, session)
 
     # Store initial result without Claude analysis
@@ -55,7 +55,7 @@ def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = D
         analysis_job_id=job_id,
         whisper_transcript=payload.whisper_transcript,
         laugh_timestamps=json.dumps(payload.laugh_timestamps),
-        claude_analysis=None,  # Will be added below
+        claude_analysis=None,  # Will be added in background
     )
     session.add(result)
 
@@ -65,18 +65,44 @@ def complete_job(job_id: UUID, payload: JobCompletePayload, session: Session = D
     session.commit()
     session.refresh(result)
 
-    # Run Claude analysis (synchronous - takes ~5s)
-    print(f"Starting Claude analysis for job {job_id}...")
-    claude_analysis = _analyze_with_claude(payload.word_timestamps, payload.laugh_timestamps)
-    if claude_analysis:
-        print(f"✓ Claude analysis succeeded for job {job_id}")
-        result.claude_analysis = claude_analysis
-        session.add(result)
-        session.commit()
-    else:
-        print(f"✗ Claude analysis returned None for job {job_id}")
+    # Return immediately to Modal (prevents timeout)
+    # Run Claude analysis in background
+    import asyncio
+    asyncio.create_task(_run_claude_analysis_async(
+        result.id,
+        payload.word_timestamps,
+        payload.laugh_timestamps
+    ))
 
     return {"ok": True}
+
+
+async def _run_claude_analysis_async(result_id: UUID, word_timestamps: list, laugh_timestamps: list):
+    """Run Claude analysis in background task."""
+    print(f"Starting Claude analysis for result {result_id}...")
+
+    # Run synchronous Claude call in thread pool
+    import asyncio
+    from starlette.concurrency import run_in_threadpool
+
+    claude_analysis = await run_in_threadpool(
+        _analyze_with_claude,
+        word_timestamps,
+        laugh_timestamps
+    )
+
+    if claude_analysis:
+        print(f"✓ Claude analysis succeeded for result {result_id}")
+        # Update the result in database
+        from backend.db import get_session
+        with next(get_session()) as session:
+            result = session.get(AnalysisResult, result_id)
+            if result:
+                result.claude_analysis = claude_analysis
+                session.add(result)
+                session.commit()
+    else:
+        print(f"✗ Claude analysis returned None for result {result_id}")
 
 
 def _analyze_with_claude(word_timestamps: list, laugh_timestamps: list) -> Optional[str]:
